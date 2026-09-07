@@ -1,0 +1,422 @@
+{
+  "info": {
+    "name": "高校场地预约 P0",
+    "description": "先跑「0. 登录」再按序执行 AC。日期变量 tomorrow / nearStart 由集合 Pre-request 按本机时区计算。AC4 请用 scripts/ac4-concurrent.ps1。",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://127.0.0.1:8080" }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "function ymd(d) {",
+          "  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');",
+          "}",
+          "function hm(d) {",
+          "  return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');",
+          "}",
+          "const tomorrow = new Date();",
+          "tomorrow.setDate(tomorrow.getDate() + 1);",
+          "pm.environment.set('tomorrow', ymd(tomorrow));",
+          "const start = new Date();",
+          "start.setSeconds(0, 0);",
+          "if (start.getMinutes() < 30) { start.setMinutes(30); } else { start.setHours(start.getHours() + 1); start.setMinutes(0); }",
+          "if (start.getTime() <= Date.now()) { start.setMinutes(start.getMinutes() + 30); }",
+          "const end = new Date(start.getTime() + 30 * 60 * 1000);",
+          "pm.environment.set('nearDate', ymd(start));",
+          "pm.environment.set('nearStart', hm(start));",
+          "pm.environment.set('nearEnd', hm(end));"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "0. 登录",
+      "item": [
+        {
+          "name": "登录 admin",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.test('admin login', () => { pm.expect(pm.response.code).to.eql(200); pm.expect(json.code).to.eql('OK'); });",
+            "pm.environment.set('adminToken', json.data.token);"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"123456\"\n}" },
+            "url": "{{baseUrl}}/api/auth/login"
+          }
+        },
+        {
+          "name": "登录 teacher01",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.test('teacher login', () => { pm.expect(pm.response.code).to.eql(200); pm.expect(json.code).to.eql('OK'); });",
+            "pm.environment.set('teacherToken', json.data.token);"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"teacher01\",\n  \"password\": \"123456\"\n}" },
+            "url": "{{baseUrl}}/api/auth/login"
+          }
+        },
+        {
+          "name": "登录 stu01",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.test('student login', () => { pm.expect(pm.response.code).to.eql(200); pm.expect(json.code).to.eql('OK'); });",
+            "pm.environment.set('studentToken', json.data.token);"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"stu01\",\n  \"password\": \"123456\"\n}" },
+            "url": "{{baseUrl}}/api/auth/login"
+          }
+        },
+        {
+          "name": "无 Token 访问 me → 401",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.test('AC unauthenticated', () => { pm.expect(pm.response.code).to.eql(401); pm.expect(json.code).to.eql('UNAUTHENTICATED'); });"
+          ] } }],
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/auth/me" }
+        },
+        {
+          "name": "me 带 Token",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.test('me ok', () => { pm.expect(json.code).to.eql('OK'); pm.expect(json.data.role).to.eql('TEACHER'); });"
+          ] } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{teacherToken}}" }],
+            "url": "{{baseUrl}}/api/auth/me"
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. 场地准备与 AC8",
+      "item": [
+        {
+          "name": "AC8 学生创建场地 → 403",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.test('AC8 forbidden', () => { pm.expect(pm.response.code).to.eql(403); pm.expect(json.code).to.eql('FORBIDDEN'); });"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{studentToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"学生不应创建\",\n  \"type\": \"MEETING_ROOM\",\n  \"campus\": \"主校区\",\n  \"building\": \"A\",\n  \"capacity\": 10,\n  \"openStart\": \"08:00\",\n  \"openEnd\": \"22:00\",\n  \"status\": \"ENABLED\"\n}" },
+            "url": "{{baseUrl}}/api/admin/venues"
+          }
+        },
+        {
+          "name": "管理员创建验收场地",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.test('create venue', () => { pm.expect(json.code).to.eql('OK'); });",
+            "pm.environment.set('venueId', String(json.data.id));"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"postman-ac-room\",\n  \"type\": \"MEETING_ROOM\",\n  \"campus\": \"主校区\",\n  \"building\": \"Postman\",\n  \"capacity\": 12,\n  \"openStart\": \"08:00\",\n  \"openEnd\": \"22:00\",\n  \"status\": \"ENABLED\"\n}" },
+            "url": "{{baseUrl}}/api/admin/venues"
+          }
+        },
+        {
+          "name": "占用查询（空）",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.test('occupancy empty', () => { pm.expect(json.code).to.eql('OK'); pm.expect(json.data.occupied).to.eql([]); });"
+          ] } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{teacherToken}}" }],
+            "url": "{{baseUrl}}/api/venues/{{venueId}}/occupancy?date={{tomorrow}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. 预约 AC10 / AC1 / AC2 / AC3 / AC9",
+      "item": [
+        {
+          "name": "AC10 超出开放时间",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.test('AC10', () => { pm.expect(pm.response.code).to.eql(400); pm.expect(json.code).to.eql('OUT_OF_OPEN_HOURS'); });"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{teacherToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"venueId\": {{venueId}},\n  \"date\": \"{{tomorrow}}\",\n  \"startTime\": \"21:30\",\n  \"endTime\": \"22:30\",\n  \"purpose\": \"AC10\"\n}" },
+            "url": "{{baseUrl}}/api/reservations"
+          }
+        },
+        {
+          "name": "AC1 正常预约 10:00-11:00",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.test('AC1', () => { pm.expect(json.code).to.eql('OK'); pm.expect(json.data.status).to.eql('CONFIRMED'); });",
+            "pm.environment.set('reservationId', String(json.data.id));"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{teacherToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"venueId\": {{venueId}},\n  \"date\": \"{{tomorrow}}\",\n  \"startTime\": \"10:00\",\n  \"endTime\": \"11:00\",\n  \"purpose\": \"AC1\"\n}" },
+            "url": "{{baseUrl}}/api/reservations"
+          }
+        },
+        {
+          "name": "AC2 相交 10:30-11:30 → CONFLICT",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.test('AC2', () => { pm.expect(pm.response.code).to.eql(409); pm.expect(json.code).to.eql('CONFLICT'); });"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{teacherToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"venueId\": {{venueId}},\n  \"date\": \"{{tomorrow}}\",\n  \"startTime\": \"10:30\",\n  \"endTime\": \"11:30\",\n  \"purpose\": \"AC2\"\n}" },
+            "url": "{{baseUrl}}/api/reservations"
+          }
+        },
+        {
+          "name": "AC3 相邻 11:00-12:00",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.test('AC3', () => { pm.expect(json.code).to.eql('OK'); });",
+            "pm.environment.set('adjacentId', String(json.data.id));"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{teacherToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"venueId\": {{venueId}},\n  \"date\": \"{{tomorrow}}\",\n  \"startTime\": \"11:00\",\n  \"endTime\": \"12:00\",\n  \"purpose\": \"AC3\"\n}" },
+            "url": "{{baseUrl}}/api/reservations"
+          }
+        },
+        {
+          "name": "AC9 第三条未结束 → QUOTA",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.test('AC9', () => { pm.expect(pm.response.code).to.eql(400); pm.expect(json.code).to.eql('QUOTA_EXCEEDED'); });"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{teacherToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"venueId\": {{venueId}},\n  \"date\": \"{{tomorrow}}\",\n  \"startTime\": \"13:00\",\n  \"endTime\": \"14:00\",\n  \"purpose\": \"AC9\"\n}" },
+            "url": "{{baseUrl}}/api/reservations"
+          }
+        },
+        {
+          "name": "占用查询应含 AC1+AC3",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.test('occupancy two slots', () => {",
+            "  pm.expect(json.code).to.eql('OK');",
+            "  pm.expect(json.data.occupied.length).to.eql(2);",
+            "});"
+          ] } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{teacherToken}}" }],
+            "url": "{{baseUrl}}/api/venues/{{venueId}}/occupancy?date={{tomorrow}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. 取消 AC5 / AC6",
+      "item": [
+        {
+          "name": "我的预约 UPCOMING",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('list mine', () => { pm.expect(pm.response.json().code).to.eql('OK'); });"
+          ] } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{teacherToken}}" }],
+            "url": "{{baseUrl}}/api/reservations/me?filter=UPCOMING"
+          }
+        },
+        {
+          "name": "AC5 教师取消相邻段",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.test('AC5 cancel', () => { pm.expect(json.code).to.eql('OK'); pm.expect(json.data.status).to.eql('CANCELLED'); });"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{teacherToken}}" }],
+            "url": "{{baseUrl}}/api/reservations/{{adjacentId}}/cancel"
+          }
+        },
+        {
+          "name": "AC5 学生再约同一时段",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.test('AC5 rebook', () => { pm.expect(json.code).to.eql('OK'); });",
+            "pm.environment.set('studentReservationId', String(json.data.id));"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{studentToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"venueId\": {{venueId}},\n  \"date\": \"{{tomorrow}}\",\n  \"startTime\": \"11:00\",\n  \"endTime\": \"12:00\",\n  \"purpose\": \"AC5\"\n}" },
+            "url": "{{baseUrl}}/api/reservations"
+          }
+        },
+        {
+          "name": "取消别人的预约 → 404",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.test('hide others', () => { pm.expect(pm.response.code).to.eql(404); pm.expect(json.code).to.eql('RESERVATION_NOT_FOUND'); });"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{teacherToken}}" }],
+            "url": "{{baseUrl}}/api/reservations/{{studentReservationId}}/cancel"
+          }
+        },
+        {
+          "name": "AC6 管理员约临近时段",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "const end = pm.environment.get('nearEnd');",
+            "if (end > '22:00') { pm.test('AC6 skip: closed', () => { pm.expect(true).to.be.true; }); return; }",
+            "pm.test('AC6 create near', () => { pm.expect(json.code).to.eql('OK'); });",
+            "if (json.data && json.data.id) pm.environment.set('nearReservationId', String(json.data.id));"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"venueId\": {{venueId}},\n  \"date\": \"{{nearDate}}\",\n  \"startTime\": \"{{nearStart}}\",\n  \"endTime\": \"{{nearEnd}}\",\n  \"purpose\": \"AC6\"\n}" },
+            "url": "{{baseUrl}}/api/reservations"
+          }
+        },
+        {
+          "name": "AC6 用户取消临近单 → CANCEL_NOT_ALLOWED",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "if (!pm.environment.get('nearReservationId')) { pm.test('AC6 skip', () => pm.expect(true).to.be.true); return; }",
+            "const json = pm.response.json();",
+            "pm.test('AC6 user cancel', () => { pm.expect(pm.response.code).to.eql(400); pm.expect(json.code).to.eql('CANCEL_NOT_ALLOWED'); });"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/reservations/{{nearReservationId}}/cancel"
+          }
+        },
+        {
+          "name": "AC6 管理员取消临近单",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "if (!pm.environment.get('nearReservationId')) { pm.test('AC6 skip', () => pm.expect(true).to.be.true); return; }",
+            "const json = pm.response.json();",
+            "pm.test('AC6 admin cancel', () => { pm.expect(json.code).to.eql('OK'); pm.expect(json.data.status).to.eql('CANCELLED'); });"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/admin/reservations/{{nearReservationId}}/cancel"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. AC7 停用禁新单",
+      "item": [
+        {
+          "name": "管理员列表可见预约",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.test('admin list', () => { pm.expect(json.code).to.eql('OK'); pm.expect(json.data.length).to.be.above(0); });",
+            "pm.environment.set('keepReservationId', pm.environment.get('reservationId'));"
+          ] } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/admin/reservations?venueId={{venueId}}&date={{tomorrow}}"
+          }
+        },
+        {
+          "name": "停用验收场地",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('disable', () => { pm.expect(pm.response.json().code).to.eql('OK'); });"
+          ] } }],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"postman-ac-room\",\n  \"type\": \"MEETING_ROOM\",\n  \"campus\": \"主校区\",\n  \"building\": \"Postman\",\n  \"capacity\": 12,\n  \"openStart\": \"08:00\",\n  \"openEnd\": \"22:00\",\n  \"status\": \"DISABLED\"\n}" },
+            "url": "{{baseUrl}}/api/admin/venues/{{venueId}}"
+          }
+        },
+        {
+          "name": "AC7 停用后再约 → VENUE_DISABLED",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.test('AC7', () => { pm.expect(pm.response.code).to.eql(400); pm.expect(json.code).to.eql('VENUE_DISABLED'); });"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"venueId\": {{venueId}},\n  \"date\": \"{{tomorrow}}\",\n  \"startTime\": \"16:00\",\n  \"endTime\": \"17:00\",\n  \"purpose\": \"AC7\"\n}" },
+            "url": "{{baseUrl}}/api/reservations"
+          }
+        },
+        {
+          "name": "AC7 旧预约仍在",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "const kept = json.data.find(r => String(r.id) === pm.environment.get('reservationId'));",
+            "pm.test('AC7 keep old', () => { pm.expect(kept).to.exist; pm.expect(kept.status).to.eql('CONFIRMED'); });"
+          ] } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/admin/reservations?venueId={{venueId}}"
+          }
+        }
+      ]
+    }
+  ]
+}
