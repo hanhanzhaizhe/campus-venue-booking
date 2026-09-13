@@ -22,6 +22,13 @@ class RescheduleRulesTest {
     }
 
     @Test
+    void userCanRescheduleMoreThanTwoHoursBefore() {
+        LocalDateTime start = LocalDateTime.of(2026, 9, 4, 16, 0);
+        LocalDateTime now = start.minusHours(2).minusMinutes(1);
+        assertDoesNotThrow(() -> RescheduleRules.assertUserCanReschedule(confirmed(start), now));
+    }
+
+    @Test
     void userCanRescheduleExactlyTwoHoursBefore() {
         LocalDateTime start = LocalDateTime.of(2026, 9, 4, 16, 0);
         LocalDateTime now = start.minusHours(2);
