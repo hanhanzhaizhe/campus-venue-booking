@@ -123,7 +123,7 @@ public class ReservationService {
 
         LocalDateTime now = LocalDateTime.now();
         RescheduleRules.assertUserCanReschedule(existing, now);
- mar
+
         User lockedUser = userMapper.selectByIdForUpdate(loginUser.getUserId());
         if (lockedUser == null || !"ACTIVE".equals(lockedUser.getStatus())) {
             throw new BusinessException(ErrorCode.UNAUTHENTICATED);
