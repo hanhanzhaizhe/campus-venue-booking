@@ -2,9 +2,11 @@
 
 本文件遵循 [Keep a Changelog](https://keepachangelog.com/) 风格。
 
-## [Unreleased] — 2026-09-13
+## [Unreleased]
 
-分支：`feature/reschedule`（未合 main）
+## [1.1.0] — 2026-09-14
+
+已合入 `main`（[PR #1](https://github.com/hanhanzhaizhe/campus-venue-booking/pull/1)，merge commit `52b9842`）。
 
 ### Added
 
