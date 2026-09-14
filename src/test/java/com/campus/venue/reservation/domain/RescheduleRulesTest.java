@@ -59,4 +59,34 @@ class RescheduleRulesTest {
                 RescheduleRules.assertUserCanReschedule(reservation, LocalDateTime.of(2026, 9, 4, 10, 0)));
         assertEquals(ErrorCode.RESCHEDULE_NOT_ALLOWED, ex.getErrorCode());
     }
+
+    @Test
+    void adminCanRescheduleWithinUserTwoHourWindow() {
+        LocalDateTime start = LocalDateTime.of(2026, 9, 4, 16, 0);
+        // 开始前 90 分钟：本人不可，管理端窗口 A 可
+        assertDoesNotThrow(() -> RescheduleRules.assertAdminCanReschedule(confirmed(start), start.minusMinutes(90)));
+    }
+
+    @Test
+    void adminCanRescheduleOneMinuteBeforeStart() {
+        LocalDateTime start = LocalDateTime.of(2026, 9, 4, 16, 0);
+        assertDoesNotThrow(() -> RescheduleRules.assertAdminCanReschedule(confirmed(start), start.minusMinutes(1)));
+    }
+
+    @Test
+    void adminCannotRescheduleAtOrAfterStart() {
+        LocalDateTime start = LocalDateTime.of(2026, 9, 4, 16, 0);
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                RescheduleRules.assertAdminCanReschedule(confirmed(start), start));
+        assertEquals(ErrorCode.RESCHEDULE_NOT_ALLOWED, ex.getErrorCode());
+    }
+
+    @Test
+    void adminCannotRescheduleCancelled() {
+        Reservation reservation = confirmed(LocalDateTime.of(2026, 9, 5, 10, 0));
+        reservation.setStatus(ReservationStatuses.CANCELLED);
+        BusinessException ex = assertThrows(BusinessException.class, () ->
+                RescheduleRules.assertAdminCanReschedule(reservation, LocalDateTime.of(2026, 9, 4, 10, 0)));
+        assertEquals(ErrorCode.RESCHEDULE_NOT_ALLOWED, ex.getErrorCode());
+    }
 }
