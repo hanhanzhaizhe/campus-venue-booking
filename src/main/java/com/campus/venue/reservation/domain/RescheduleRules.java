@@ -25,4 +25,13 @@ public final class RescheduleRules {
             throw new BusinessException(ErrorCode.RESCHEDULE_NOT_ALLOWED);
         }
     }
+
+    public static void assertAdminCanReschedule(Reservation reservation, LocalDateTime now) {
+        if (!ReservationStatuses.CONFIRMED.equals(reservation.getStatus())) {
+            throw new BusinessException(ErrorCode.RESCHEDULE_NOT_ALLOWED);
+        }
+        if (!now.isBefore(reservation.getStartTime())) {
+            throw new BusinessException(ErrorCode.RESCHEDULE_NOT_ALLOWED);
+        }
+    }
 }
