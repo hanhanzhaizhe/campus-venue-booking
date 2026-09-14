@@ -6,17 +6,20 @@
 
 ### Added
 
-- 管理端改约接口 `PUT /api/admin/reservations/{id}`：ADMIN 改任意用户未开始的 `CONFIRMED` 单；开始前均可；复用本人改约锁序与冲突排除本单
-- 设计稿 `docs/reservation/admin-reschedule.md`；审查 `review/2026-09-14/`；测试报告 `test/2026-09-14/admin-reschedule.md`
+- 管理端改约接口 `PUT /api/admin/reservations/{id}`：ADMIN 改任意用户未开始的 `CONFIRMED` 单；开始前均可
+- 管理端写操作审计：独立表 `admin_audit_log`；管理端取消/改约同事务追加；`GET /api/admin/audit-logs` 薄查询
+- 设计稿 `docs/reservation/admin-reschedule.md`、`docs/reservation/admin-audit.md`；审查与测试报告见 `review/2026-09-14/`、`test/2026-09-14/`
 
 ### Changed
 
-- `README.md`、`docs/接口联调.md` 补上管理端改约路径与验收项
+- `README.md`、`docs/接口联调.md` 补上管理端改约与审计路径
+- `schema.sql` 增加 `admin_audit_log`（含已有库增量注释）
 
 ### Notes
 
-- 无表结构变更，无新错误码，无依赖升级
-- 分支：`feature/admin-reschedule`（未合 main）
+- 审计不记本人路径；场地写操作审计二期；取消/改约不加 `reason` 入参
+- test scope 增加 `mybatis-plus-boot-starter-test`（仅测试，未升业务依赖）
+- 分支：`feature/admin-audit`（基于管理端改约，未合 main）
 
 ## [1.1.0] — 2026-09-14
 
