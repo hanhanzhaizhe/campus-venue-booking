@@ -1,14 +1,17 @@
 package com.campus.venue.reservation.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.campus.venue.common.api.ErrorCode;
 import com.campus.venue.common.exception.BusinessException;
 import com.campus.venue.reservation.domain.CancelRules;
 import com.campus.venue.reservation.domain.QuotaRules;
+import com.campus.venue.reservation.domain.RescheduleRules;
 import com.campus.venue.reservation.domain.ReservationStatuses;
 import com.campus.venue.reservation.domain.TimeRange;
 import com.campus.venue.reservation.domain.TimeSlotRules;
 import com.campus.venue.reservation.dto.CreateReservationRequest;
+import com.campus.venue.reservation.dto.RescheduleReservationRequest;
 import com.campus.venue.reservation.dto.ReservationResponse;
 import com.campus.venue.reservation.entity.Reservation;
 import com.campus.venue.reservation.mapper.ReservationMapper;
@@ -108,6 +111,79 @@ public class ReservationService {
         reservation.setPurpose(StringUtils.hasText(request.getPurpose()) ? request.getPurpose().trim() : null);
         reservationMapper.insert(reservation);
         return ReservationResponse.from(reservation);
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public ReservationResponse reschedule(Long id, RescheduleReservationRequest request) {
+        LoginUser loginUser = SecurityUtils.requireCurrentUser();
+        Reservation existing = reservationMapper.selectById(id);
+        if (existing == null || !loginUser.getUserId().equals(existing.getUserId())) {
+            throw new BusinessException(ErrorCode.RESERVATION_NOT_FOUND);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        RescheduleRules.assertUserCanReschedule(existing, now);
+
+        User lockedUser = userMapper.selectByIdForUpdate(loginUser.getUserId());
+        if (lockedUser == null || !"ACTIVE".equals(lockedUser.getStatus())) {
+            throw new BusinessException(ErrorCode.UNAUTHENTICATED);
+        }
+
+        Venue lockedVenue = venueMapper.selectByIdForUpdate(existing.getVenueId());
+        if (lockedVenue == null) {
+            throw new BusinessException(ErrorCode.VENUE_NOT_FOUND);
+        }
+        if (!VenueService.STATUS_ENABLED.equals(lockedVenue.getStatus())) {
+            throw new BusinessException(ErrorCode.VENUE_DISABLED);
+        }
+
+        Reservation locked = reservationMapper.selectById(id);
+        if (locked == null || !loginUser.getUserId().equals(locked.getUserId())) {
+            throw new BusinessException(ErrorCode.RESERVATION_NOT_FOUND);
+        }
+
+        now = LocalDateTime.now();
+        RescheduleRules.assertUserCanReschedule(locked, now);
+
+        TimeRange range = TimeSlotRules.resolve(request.getDate(), request.getStartTime(), request.getEndTime(), now);
+        TimeSlotRules.assertWithinOpenHours(range, lockedVenue.getOpenStart(), lockedVenue.getOpenEnd());
+
+        Long duplicate = reservationMapper.selectCount(new LambdaQueryWrapper<Reservation>()
+                .eq(Reservation::getUserId, lockedUser.getId())
+                .eq(Reservation::getVenueId, lockedVenue.getId())
+                .eq(Reservation::getStartTime, range.getStart())
+                .eq(Reservation::getEndTime, range.getEnd())
+                .eq(Reservation::getStatus, ReservationStatuses.CONFIRMED)
+                .ne(Reservation::getId, locked.getId())
+                .last("FOR UPDATE"));
+        if (duplicate > 0) {
+            throw new BusinessException(ErrorCode.DUPLICATE_RESERVATION);
+        }
+
+        Long conflict = reservationMapper.selectCount(new LambdaQueryWrapper<Reservation>()
+                .eq(Reservation::getVenueId, lockedVenue.getId())
+                .eq(Reservation::getStatus, ReservationStatuses.CONFIRMED)
+                .lt(Reservation::getStartTime, range.getEnd())
+                .gt(Reservation::getEndTime, range.getStart())
+                .ne(Reservation::getId, locked.getId())
+                .last("FOR UPDATE"));
+        if (conflict > 0) {
+            throw new BusinessException(ErrorCode.CONFLICT);
+        }
+
+        locked.setStartTime(range.getStart());
+        locked.setEndTime(range.getEnd());
+        LambdaUpdateWrapper<Reservation> update = new LambdaUpdateWrapper<Reservation>()
+                .eq(Reservation::getId, locked.getId())
+                .set(Reservation::getStartTime, range.getStart())
+                .set(Reservation::getEndTime, range.getEnd());
+        if (request.getPurpose() != null) {
+            String purpose = StringUtils.hasText(request.getPurpose()) ? request.getPurpose().trim() : null;
+            update.set(Reservation::getPurpose, purpose);
+            locked.setPurpose(purpose);
+        }
+        reservationMapper.update(null, update);
+        return ReservationResponse.from(locked);
     }
 
     public List<ReservationResponse> listMine(String filter) {

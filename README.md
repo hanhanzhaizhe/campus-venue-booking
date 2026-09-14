@@ -1,6 +1,6 @@
 # 高校场地资源预约管理系统（P0 后端）
 
-独占型场地的查询、预约、取消与管理。提交时强一致防超约（事务 + 场地行锁 + 读已提交）。
+独占型场地的查询、预约、改约、取消与管理。提交时强一致防超约（事务 + 场地行锁 + 读已提交）。
 
 ## 环境
 
@@ -89,6 +89,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ac4-concurrent.ps1 -
 | AC8 | 学生创建场地 | 403 `FORBIDDEN` |
 | AC9 | 未结束已有 2 条再约 | `QUOTA_EXCEEDED` |
 | AC10 | 超出开放时间 | `OUT_OF_OPEN_HOURS` |
+| AC11 | 本人改约（窗口内、无冲突） | 200，id 不变 |
+| AC12 | 改约相交 / 相邻 | 409 `CONFLICT` / 200 |
+| AC13 | 改他人或窗口外 / 已开始 | 404 或 `RESCHEDULE_NOT_ALLOWED` |
 
 ## 主要接口
 
@@ -99,6 +102,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ac4-concurrent.ps1 -
 | GET | `/api/venues` | 登录，仅启用 |
 | GET | `/api/venues/{id}/occupancy?date=` | 登录 |
 | POST | `/api/reservations` | 登录 |
+| PUT | `/api/reservations/{id}` | 本人改约，提前 2 小时；不换场、不占新配额 |
 | GET | `/api/reservations/me` | 本人 |
 | POST | `/api/reservations/{id}/cancel` | 本人，提前 2 小时 |
 | GET/POST/PUT | `/api/admin/venues` | 管理员 |
@@ -113,11 +117,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ac4-concurrent.ps1 -
 mvn test
 ```
 
-覆盖时间对齐、开放时间、区间相交、配额、取消窗口。
+覆盖时间对齐、开放时间、区间相交、配额、取消窗口、改约窗口（开始前 2h，恰好 2h 允许）。
 
 ## 文档
 
 - [接口联调说明](docs/接口联调.md)
+- [本人改约设计](docs/reservation/reschedule.md)
+- [变更记录](CHANGELOG.md)
 - [面试讲法](docs/面试讲法.md)
 - [面试准备：提问 / 学习 / 知识点](docs/面试准备.md)
 - [面试题库（问答）](docs/面试题库.md)
