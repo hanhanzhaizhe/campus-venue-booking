@@ -3,6 +3,7 @@ package com.campus.venue.reservation.service;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.campus.venue.audit.service.AdminAuditService;
 import com.campus.venue.common.api.ErrorCode;
 import com.campus.venue.common.exception.BusinessException;
 import com.campus.venue.reservation.domain.ReservationStatuses;
@@ -37,6 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -58,6 +60,8 @@ class ReservationServiceAdminRescheduleTest {
     private VenueService venueService;
     @Mock
     private ReservationMapper reservationMapper;
+    @Mock
+    private AdminAuditService adminAuditService;
 
     @InjectMocks
     private ReservationService reservationService;
@@ -109,6 +113,7 @@ class ReservationServiceAdminRescheduleTest {
         assertEquals(targetDate.atTime(targetEnd), response.getEndTime());
         assertEquals("社团活动", response.getPurpose());
         verify(userMapper).selectByIdForUpdate(OWNER_ID);
+        verify(adminAuditService).recordReservationReschedule(eq(ADMIN_ID), any(), any());
     }
 
     @Test
@@ -153,6 +158,7 @@ class ReservationServiceAdminRescheduleTest {
                 reservationService.rescheduleByAdmin(RESERVATION_ID, request(null)));
         assertEquals(ErrorCode.CONFLICT, ex.getErrorCode());
         verify(reservationMapper, never()).update(any(), any());
+        verify(adminAuditService, never()).recordReservationReschedule(any(), any(), any());
     }
 
     @Test
