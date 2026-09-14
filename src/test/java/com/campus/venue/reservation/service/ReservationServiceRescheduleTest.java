@@ -244,7 +244,7 @@ class ReservationServiceRescheduleTest {
         LocalTime sameEnd = originalEnd.toLocalTime();
         stubLocks(existing);
         when(reservationMapper.selectCount(any())).thenReturn(0L);
-        when(reservationMapper.update(isNull(), any(Wrapper.class)).thenReturn(1);
+        when(reservationMapper.update(isNull(), any(Wrapper.class))).thenReturn(1);
 
         RescheduleReservationRequest body = new RescheduleReservationRequest();
         body.setDate(sameDate);
