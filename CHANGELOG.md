@@ -4,6 +4,20 @@
 
 ## [Unreleased]
 
+### Added
+
+- 管理端改约接口 `PUT /api/admin/reservations/{id}`：ADMIN 改任意用户未开始的 `CONFIRMED` 单；开始前均可；复用本人改约锁序与冲突排除本单
+- 设计稿 `docs/reservation/admin-reschedule.md`；审查 `review/2026-09-14/`；测试报告 `test/2026-09-14/admin-reschedule.md`
+
+### Changed
+
+- `README.md`、`docs/接口联调.md` 补上管理端改约路径与验收项
+
+### Notes
+
+- 无表结构变更，无新错误码，无依赖升级
+- 分支：`feature/admin-reschedule`（未合 main）
+
 ## [1.1.0] — 2026-09-14
 
 已合入 `main`（[PR #1](https://github.com/hanhanzhaizhe/campus-venue-booking/pull/1)，merge commit `52b9842`）。

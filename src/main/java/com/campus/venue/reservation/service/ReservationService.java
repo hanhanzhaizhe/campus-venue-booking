@@ -144,7 +144,51 @@ public class ReservationService {
 
         now = LocalDateTime.now();
         RescheduleRules.assertUserCanReschedule(locked, now);
+        return applyRescheduleAfterLocks(locked, lockedUser, lockedVenue, request, now);
+    }
 
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public ReservationResponse rescheduleByAdmin(Long id, RescheduleReservationRequest request) {
+        SecurityUtils.requireCurrentUser();
+        Reservation existing = reservationMapper.selectById(id);
+        if (existing == null) {
+            throw new BusinessException(ErrorCode.RESERVATION_NOT_FOUND);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        RescheduleRules.assertAdminCanReschedule(existing, now);
+
+        User lockedUser = userMapper.selectByIdForUpdate(existing.getUserId());
+        if (lockedUser == null) {
+            throw new BusinessException(ErrorCode.RESERVATION_NOT_FOUND);
+        }
+        if (!"ACTIVE".equals(lockedUser.getStatus())) {
+            throw new BusinessException(ErrorCode.RESCHEDULE_NOT_ALLOWED);
+        }
+
+        Venue lockedVenue = venueMapper.selectByIdForUpdate(existing.getVenueId());
+        if (lockedVenue == null) {
+            throw new BusinessException(ErrorCode.VENUE_NOT_FOUND);
+        }
+        if (!VenueService.STATUS_ENABLED.equals(lockedVenue.getStatus())) {
+            throw new BusinessException(ErrorCode.VENUE_DISABLED);
+        }
+
+        Reservation locked = reservationMapper.selectById(id);
+        if (locked == null) {
+            throw new BusinessException(ErrorCode.RESERVATION_NOT_FOUND);
+        }
+
+        now = LocalDateTime.now();
+        RescheduleRules.assertAdminCanReschedule(locked, now);
+        return applyRescheduleAfterLocks(locked, lockedUser, lockedVenue, request, now);
+    }
+
+    private ReservationResponse applyRescheduleAfterLocks(Reservation locked,
+                                                          User lockedUser,
+                                                          Venue lockedVenue,
+                                                          RescheduleReservationRequest request,
+                                                          LocalDateTime now) {
         TimeRange range = TimeSlotRules.resolve(request.getDate(), request.getStartTime(), request.getEndTime(), now);
         TimeSlotRules.assertWithinOpenHours(range, lockedVenue.getOpenStart(), lockedVenue.getOpenEnd());
 
