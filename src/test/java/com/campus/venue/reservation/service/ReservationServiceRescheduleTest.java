@@ -1,6 +1,7 @@
 package com.campus.venue.reservation.service;
 
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.campus.venue.audit.service.AdminAuditService;
 import com.campus.venue.common.api.ErrorCode;
 import com.campus.venue.common.exception.BusinessException;
 import com.campus.venue.reservation.domain.ReservationStatuses;
@@ -58,6 +59,8 @@ class ReservationServiceRescheduleTest {
     private VenueService venueService;
     @Mock
     private ReservationMapper reservationMapper;
+    @Mock
+    private AdminAuditService adminAuditService;
 
     @InjectMocks
     private ReservationService reservationService;
@@ -111,6 +114,7 @@ class ReservationServiceRescheduleTest {
         assertEquals(targetDate.atTime(targetEnd), response.getEndTime());
         assertEquals("社团活动", response.getPurpose());
         verify(reservationMapper).update(isNull(), any(Wrapper.class));
+        verify(adminAuditService, never()).recordReservationReschedule(any(), any(), any());
     }
 
     @Test
@@ -240,7 +244,7 @@ class ReservationServiceRescheduleTest {
         LocalTime sameEnd = originalEnd.toLocalTime();
         stubLocks(existing);
         when(reservationMapper.selectCount(any())).thenReturn(0L);
-        when(reservationMapper.update(isNull(), any(Wrapper.class))).thenReturn(1);
+        when(reservationMapper.update(isNull(), any(Wrapper.class)).thenReturn(1);
 
         RescheduleReservationRequest body = new RescheduleReservationRequest();
         body.setDate(sameDate);
