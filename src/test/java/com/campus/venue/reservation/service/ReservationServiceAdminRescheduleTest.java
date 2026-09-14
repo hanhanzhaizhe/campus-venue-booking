@@ -209,8 +209,8 @@ class ReservationServiceAdminRescheduleTest {
     void adminPurposeOmitted_keepsOriginal() {
         Reservation existing = confirmedOwned("保留");
         stubLocks(existing, "ACTIVE");
-        when(reservationMapper.update(isNull(), any(Wrapper.class))).thenReturn(1);
         when(reservationMapper.selectCount(any())).thenReturn(0L);
+        when(reservationMapper.update(isNull(), any(Wrapper.class))).thenReturn(1);
 
         ReservationResponse response = reservationService.rescheduleByAdmin(RESERVATION_ID, request(null));
         assertEquals("保留", response.getPurpose());
