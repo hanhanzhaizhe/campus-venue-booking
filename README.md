@@ -95,6 +95,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ac4-concurrent.ps1 -
 | AC14 | 管理端改约（开始前、无冲突） | 200，id 不变 |
 | AC15 | 学生调管理端改约 | 403 `FORBIDDEN` |
 | AC16 | 管理端改已取消/已开始 | `RESCHEDULE_NOT_ALLOWED` |
+| AC17 | 管理端取消/改约后查审计 | 有对应 `admin_audit_log` |
+| AC18 | 学生调审计查询 | 403 `FORBIDDEN` |
 
 ## 主要接口
 
@@ -112,6 +114,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ac4-concurrent.ps1 -
 | GET | `/api/admin/reservations` | 管理员 |
 | PUT | `/api/admin/reservations/{id}` | 管理员改约，开始前均可；不换场、不占新配额 |
 | POST | `/api/admin/reservations/{id}/cancel` | 管理员，开始前即可 |
+| GET | `/api/admin/audit-logs` | 管理员查写操作审计 |
 
 统一响应：`{ "code", "message", "data" }`。业务冲突用 `CONFLICT`（HTTP 409）。
 
@@ -121,13 +124,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ac4-concurrent.ps1 -
 mvn test
 ```
 
-覆盖时间对齐、开放时间、区间相交、配额、取消窗口、本人改约窗口（开始前 2h）、管理端改约（开始前均可）。
+覆盖时间对齐、开放时间、区间相交、配额、取消/改约窗口、本人改约窗口（开始前 2h）、管理端改约（开始前均可）、管理端审计快照与（需测试库时）真实库 insert。
 
 ## 文档
 
 - [接口联调说明](docs/接口联调.md)
 - [本人改约设计](docs/reservation/reschedule.md)
 - [管理端改约设计](docs/reservation/admin-reschedule.md)
+- [管理端写操作审计设计](docs/reservation/admin-audit.md)
 - [变更记录](CHANGELOG.md)
 - [面试讲法](docs/面试讲法.md)
 - [面试准备：提问 / 学习 / 知识点](docs/面试准备.md)

@@ -2,6 +2,7 @@ package com.campus.venue.reservation.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.campus.venue.audit.service.AdminAuditService;
 import com.campus.venue.common.api.ErrorCode;
 import com.campus.venue.common.exception.BusinessException;
 import com.campus.venue.reservation.domain.CancelRules;
@@ -39,15 +40,18 @@ public class ReservationService {
     private final VenueMapper venueMapper;
     private final VenueService venueService;
     private final ReservationMapper reservationMapper;
+    private final AdminAuditService adminAuditService;
 
     public ReservationService(UserMapper userMapper,
                               VenueMapper venueMapper,
                               VenueService venueService,
-                              ReservationMapper reservationMapper) {
+                              ReservationMapper reservationMapper,
+                              AdminAuditService adminAuditService) {
         this.userMapper = userMapper;
         this.venueMapper = venueMapper;
         this.venueService = venueService;
         this.reservationMapper = reservationMapper;
+        this.adminAuditService = adminAuditService;
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -144,7 +148,7 @@ public class ReservationService {
 
         now = LocalDateTime.now();
         RescheduleRules.assertUserCanReschedule(locked, now);
-        return applyRescheduleAfterLocks(locked, lockedUser, lockedVenue, request, now);
+        return applyRescheduleAfterLocks(locked, lockedUser, lockedVenue, request, now, null);
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -181,14 +185,20 @@ public class ReservationService {
 
         now = LocalDateTime.now();
         RescheduleRules.assertAdminCanReschedule(locked, now);
-        return applyRescheduleAfterLocks(locked, lockedUser, lockedVenue, request, now);
+        Long operatorId = SecurityUtils.requireCurrentUser().getUserId();
+        return applyRescheduleAfterLocks(locked, lockedUser, lockedVenue, request, now, operatorId);
     }
 
     private ReservationResponse applyRescheduleAfterLocks(Reservation locked,
                                                           User lockedUser,
                                                           Venue lockedVenue,
                                                           RescheduleReservationRequest request,
-                                                          LocalDateTime now) {
+                                                          LocalDateTime now,
+                                                          Long adminOperatorId) {
+        Reservation beforeSnapshot = null;
+        if (adminOperatorId != null) {
+            beforeSnapshot = copyReservationSnapshot(locked);
+        }
         TimeRange range = TimeSlotRules.resolve(request.getDate(), request.getStartTime(), request.getEndTime(), now);
         TimeSlotRules.assertWithinOpenHours(range, lockedVenue.getOpenStart(), lockedVenue.getOpenEnd());
 
@@ -227,6 +237,9 @@ public class ReservationService {
             locked.setPurpose(purpose);
         }
         reservationMapper.update(null, update);
+        if (adminOperatorId != null) {
+            adminAuditService.recordReservationReschedule(adminOperatorId, beforeSnapshot, locked);
+        }
         return ReservationResponse.from(locked);
     }
 
@@ -287,9 +300,26 @@ public class ReservationService {
         } else {
             CancelRules.assertUserCanCancel(locked, now);
         }
+        Reservation beforeSnapshot = admin ? copyReservationSnapshot(locked) : null;
         locked.setStatus(ReservationStatuses.CANCELLED);
         reservationMapper.updateById(locked);
+        if (admin) {
+            Long operatorId = SecurityUtils.requireCurrentUser().getUserId();
+            adminAuditService.recordReservationCancel(operatorId, beforeSnapshot, locked);
+        }
         return ReservationResponse.from(locked);
+    }
+
+    private static Reservation copyReservationSnapshot(Reservation source) {
+        Reservation copy = new Reservation();
+        copy.setId(source.getId());
+        copy.setVenueId(source.getVenueId());
+        copy.setUserId(source.getUserId());
+        copy.setStartTime(source.getStartTime());
+        copy.setEndTime(source.getEndTime());
+        copy.setStatus(source.getStatus());
+        copy.setPurpose(source.getPurpose());
+        return copy;
     }
 
     private void applyFilter(LambdaQueryWrapper<Reservation> wrapper, String filter, LocalDateTime now) {

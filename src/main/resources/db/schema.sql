@@ -51,3 +51,23 @@ CREATE TABLE IF NOT EXISTS `reservation` (
   CONSTRAINT `fk_res_venue` FOREIGN KEY (`venue_id`) REFERENCES `venue` (`id`),
   CONSTRAINT `fk_res_user`  FOREIGN KEY (`user_id`)  REFERENCES `user` (`id`)
 ) ENGINE=InnoDB COMMENT='预约';
+
+
+-- ========== admin-audit 增量（feature/admin-audit）==========
+CREATE TABLE IF NOT EXISTS `admin_audit_log` (
+  `id`             BIGINT        NOT NULL AUTO_INCREMENT,
+  `operator_id`    BIGINT        NOT NULL COMMENT '管理员 user.id',
+  `action`         VARCHAR(32)   NOT NULL COMMENT '见 AdminAuditActions',
+  `resource_type`  VARCHAR(16)   NOT NULL COMMENT 'RESERVATION / VENUE',
+  `resource_id`    BIGINT        NOT NULL COMMENT '对应资源主键',
+  `reservation_id` BIGINT        DEFAULT NULL COMMENT '预约维度查询冗余；场地类为空',
+  `venue_id`       BIGINT        DEFAULT NULL COMMENT '场地 id 冗余，便于按场地查',
+  `before_data`    VARCHAR(1000) DEFAULT NULL COMMENT '改前关键字段 JSON 摘要',
+  `after_data`     VARCHAR(1000) DEFAULT NULL COMMENT '改后关键字段 JSON 摘要',
+  `reason`         VARCHAR(200)  DEFAULT NULL COMMENT '可选原因；P0 接口无入参时恒为 null',
+  `created_at`     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_audit_reservation_time` (`reservation_id`, `created_at`),
+  KEY `idx_audit_operator_time` (`operator_id`, `created_at`),
+  KEY `idx_audit_resource_time` (`resource_type`, `resource_id`, `created_at`)
+) ENGINE=InnoDB COMMENT='管理端写操作审计（只追加）';
