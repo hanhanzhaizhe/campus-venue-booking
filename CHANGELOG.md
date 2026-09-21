@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-09-21
+
+已合入 `main`：
+- 管理端改约 [PR #3](https://github.com/hanhanzhaizhe/campus-venue-booking/pull/3)（`6333f6c`）
+- 管理端写操作审计 [PR #5](https://github.com/hanhanzhaizhe/campus-venue-booking/pull/5)（`66e3d36`）
+
 ### Added
 
 - 管理端改约接口 `PUT /api/admin/reservations/{id}`：ADMIN 改任意用户未开始的 `CONFIRMED` 单；开始前均可；复用本人改约锁序与冲突排除本单
@@ -19,8 +25,7 @@
 
 - 审计不记本人路径；场地写操作审计二期；取消/改约不加 `reason` 入参
 - test scope 增加 `mybatis-plus-boot-starter-test`（仅测试，未升业务依赖）
-- 管理端改约：无新错误码，无依赖升级
-- 分支：`feature/admin-audit`
+- 管理端改约：无新错误码，无业务依赖升级
 
 ## [1.1.0] — 2026-09-14
 
