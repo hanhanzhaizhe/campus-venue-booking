@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+### Added
+
+- 本仓 `frontend/`：Vue 3 + Vite + Element Plus + Pinia 首版（登录、场地预约、本人改约/取消、管理端改约/取消、审计查询）
+- [frontend/README.md](frontend/README.md)、设计 [docs/frontend/v1.md](docs/frontend/v1.md)
+
+### Notes
+
+- 分支：`feature/frontend-v1`（未合 main）
+- 401 清 Pinia 后再跳登录；学生进 `/admin/**` 由路由守卫拦截
+
 ## [1.2.0] — 2026-09-21
 
 已合入 `main`：
